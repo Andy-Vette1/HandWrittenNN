@@ -25,10 +25,10 @@ if torch.cuda.is_available():
     device = torch.device("cuda")
 elif torch.backends.mps.is_available():
     device = torch.device("mps")  # <--- 这里就是 Mac 的 GPU 加速
-    print("🚀 使用 Apple Metal (MPS) 加速中...")
+    print("使用 Apple Metal (MPS) 加速中...")
 else:
     device = torch.device("cpu")
-    print("⚠️ 未检测到 GPU，正在使用 CPU 慢速训练...")
+    print("未检测到 GPU，正在使用 CPU 慢速训练...")
 
 print(f"当前设备: {device}")
 
