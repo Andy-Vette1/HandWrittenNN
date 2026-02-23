@@ -1,4 +1,4 @@
-from models.fnn import FNN
+from src.fnn.model import FNN
 from src.data_loader import DataLoader
 from src.paths import MNIST_TRAIN_CSV
 import numpy as np

@@ -60,12 +60,16 @@ class FNN:
     def backward(self, X, y, learning_rate=0.1):
         """
            Backpropagation algorithm.
-            :param X: Input data.
+            :param X: Input data from the latest forward pass (consistency check only).
             :param y: Ground-truth labels (one-hot encoded).
             :param learning_rate: Learning rate.
         """
         # 0. Setup
-        batch_size = X.shape[0]
+        cached_inputs = self.cache['inputs']
+        if X.shape != cached_inputs.shape or not np.array_equal(X, cached_inputs):
+            raise ValueError("Input X in backward() must match the latest forward() batch.")
+
+        batch_size = cached_inputs.shape[0]
         # Retrieve cached intermediate values from forward propagation
         # Use self.params directly for parameters
         output_weights = self.params['W2']
@@ -88,12 +92,11 @@ class FNN:
         hidden_linear_delta = hidden_activation_grad * (hidden_linear > 0)
 
         # 2.3 Compute first-layer parameter gradients
-        # X.T is required here
-        grad_W1 = np.dot(X.T, hidden_linear_delta) / batch_size
+        # cached_inputs.T is required here
+        grad_W1 = np.dot(cached_inputs.T, hidden_linear_delta) / batch_size
         grad_b1 = np.sum(hidden_linear_delta, axis=0, keepdims=True) / batch_size
 
         # 3. Update parameters (gradient descent)
-        # W = W - learning_rate * dW
         self.params['W1'] -= learning_rate * grad_W1
         self.params['b1'] -= learning_rate * grad_b1
         self.params['W2'] -= learning_rate * grad_W2

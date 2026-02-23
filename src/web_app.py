@@ -5,28 +5,36 @@ from flask import Flask, render_template, request, jsonify
 from src.paths import CNN_CHECKPOINT, FNN_CHECKPOINT
 
 # 导入两个模型类
-from models.fnn import FNN
-from models.cnn import CNN
+from src.fnn import FNN
+from src.cnn.model import CNN
 
 app = Flask(__name__, template_folder='web/templates')
 
 # --- 1. 加载 NumPy FNN ---
-fnn_model = FNN(784, 128, 10)
+fnn_model = None
 try:
-    fnn_model.load(str(FNN_CHECKPOINT))
+    loaded_fnn = FNN(784, 128, 10)
+    loaded_fnn.load(str(FNN_CHECKPOINT))
+    fnn_model = loaded_fnn
     print("FNN 模型加载成功")
-except:
-    print("FNN 模型未找到")
+except FileNotFoundError:
+    print(f"FNN 模型未找到: {FNN_CHECKPOINT}")
+except Exception as err:
+    print(f"FNN 模型加载失败: {err}")
 
 # --- 2. 加载 PyTorch CNN ---
-cnn_model = CNN()
+cnn_model = None
 try:
     # map_location='cpu' 确保在没显卡的电脑上也能跑
-    cnn_model.load_state_dict(torch.load(str(CNN_CHECKPOINT), map_location='cpu'))
-    cnn_model.eval()  # 切换到评估模式 (这就好比要把"考试状态"开关打开)
+    loaded_cnn = CNN()
+    loaded_cnn.load_state_dict(torch.load(str(CNN_CHECKPOINT), map_location='cpu'))
+    loaded_cnn.eval()  # 切换到评估模式 (这就好比要把"考试状态"开关打开)
+    cnn_model = loaded_cnn
     print("CNN 模型加载成功")
-except:
-    print("CNN 模型未找到 (请先运行 src/train_cnn.py)")
+except FileNotFoundError:
+    print(f"CNN 模型未找到: {CNN_CHECKPOINT} (请先运行 src/train_cnn.py)")
+except Exception as err:
+    print(f"CNN 模型加载失败: {err}")
 
 
 @app.route('/')
@@ -49,17 +57,20 @@ def predict():
     x_input = np.array(pixels, dtype=np.float32)
     if is_black_on_white:
         x_input = 255.0 - x_input
-    x_input = x_input / 255.0
-
-    mean = 0.1307
-    std = 0.3081
-    x_input = (x_input - mean) / std
+    x_input = x_input / 255.0  # Match FNN training normalization
 
     # --- 分支逻辑 ---
     if model_type == 'cnn':
+        if cnn_model is None:
+            return jsonify({'error': 'CNN model is not loaded'}), 503
+
+        mean = 0.1307
+        std = 0.3081
+        cnn_input = (x_input - mean) / std
+
         # CNN 需要 (1, 1, 28, 28) 的 4D Tensor
         # reshape: [1, 28, 28] -> [1, 1, 28, 28]
-        tensor_input = torch.tensor(x_input.reshape(1, 1, 28, 28))
+        tensor_input = torch.tensor(cnn_input.reshape(1, 1, 28, 28))
 
         with torch.no_grad():  # 推理时不需要算梯度
             outputs = cnn_model(tensor_input)
@@ -67,6 +78,9 @@ def predict():
             probs = F.softmax(outputs, dim=1).numpy()[0]
 
     else:  # 默认为 FNN
+        if fnn_model is None:
+            return jsonify({'error': 'FNN model is not loaded'}), 503
+
         # FNN 需要 (1, 784) 的 2D Array
         fnn_input = x_input.reshape(1, -1)
         probs = fnn_model.forward(fnn_input)[0]
