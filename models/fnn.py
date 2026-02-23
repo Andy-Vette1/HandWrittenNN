@@ -19,8 +19,7 @@ class FNN:
 
     def relu(self, Z):
         # ReLU 就是把小于 0 的变成 0，大于 0 的保持不变
-        # 提示：用 np.maximum
-        return np.maximum(0, Z)  # 帮你填了一个，感受一下
+        return np.maximum(0, Z)
 
     def softmax(self, Z):
         # Softmax 公式: exp(Z) / sum(exp(Z))
