@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environment
+venv/
+
+# IDE
+.idea/
+
+# Runtime artifacts
+artifacts/checkpoints/
+artifacts/exports/
+
+# Downloaded datasets
+data/torchvision/
+
+# OS files
+.DS_Store

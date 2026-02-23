@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Handwritten Digit Recognizer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { margin-bottom: 10px; }
+
+        .main-container {
+            display: flex;
+            gap: 40px;
+            align-items: flex-start;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .canvas-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- CSS 修复重点 --- */
+        .canvas-container {
+            border: 4px solid #333;
+            width: 280px;
+            height: 280px;
+            margin-bottom: 15px;
+            cursor: crosshair;
+            /* 居中画布 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #eee;
+        }
+
+        canvas {
+            width: 100%;    /* 让画布撑满容器 */
+            height: 100%;
+            display: block;
+            image-rendering: pixelated; /* 像素化显示，不模糊 */
+        }
+        /* ------------------ */
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-danger:hover { background-color: #a71d2a; }
+
+        .btn-toggle { background-color: #6c757d; color: white; }
+
+        /* 右侧结果样式 */
+        .result-section { width: 300px; }
+        .prediction-box {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 8px;
+        }
+        .prediction-number { font-size: 4rem; font-weight: bold; color: #28a745; line-height: 1; }
+        .prediction-label { font-size: 0.9rem; color: #666; }
+
+        .prob-row { display: flex; align-items: center; margin-bottom: 5px; font-size: 14px; }
+        .prob-label { width: 20px; font-weight: bold; }
+        .prob-bar-container { flex-grow: 1; background: #eee; height: 10px; border-radius: 5px; margin: 0 10px; overflow: hidden; }
+        .prob-bar { height: 100%; background: #007bff; width: 0%; transition: width 0.3s ease; }
+        .prob-value { width: 45px; text-align: right; font-size: 12px; color: #666; }
+
+    </style>
+</head>
+<body>
+
+    <h1>AI Handwritten Digit Recognizer</h1>
+    <p>Model: NumPy FNN (Real-time Prediction)</p>
+
+    <div class="main-container">
+        <div class="canvas-section">
+            <div class="canvas-container">
+                <canvas id="digitCanvas" width="28" height="28"></canvas>
+            </div>
+
+            <div class="controls">
+                <button class="btn-danger" onclick="clearCanvas()">Clear</button>
+                <button class="btn-toggle" onclick="toggleMode()" id="modeBtn">Mode: MNIST</button>
+
+                <select id="modelSelect" style="padding: 8px; border-radius: 5px; font-weight: bold;">
+                    <option value="fnn">Model: NumPy FNN</option>
+                    <option value="cnn" selected>Model: PyTorch CNN</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="result-section">
+            <div class="prediction-box">
+                <div class="prediction-label">Prediction</div>
+                <div class="prediction-number" id="predResult">?</div>
+                <div class="prediction-label" id="confResult">Confidence: -</div>
+            </div>
+            <div id="probChart"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('digitCanvas');
+        const ctx = canvas.getContext('2d');
+        let isDrawing = false;
+        let isBlackOnWhite = false;
+
+        // 初始化图表
+        const probChart = document.getElementById('probChart');
+        for(let i=0; i<=9; i++) {
+            probChart.innerHTML += `
+                <div class="prob-row">
+                    <div class="prob-label">${i}</div>
+                    <div class="prob-bar-container"><div class="prob-bar" id="bar-${i}"></div></div>
+                    <div class="prob-value" id="val-${i}">0%</div>
+                </div>`;
+        }
+
+        function initCanvas() {
+            if (isBlackOnWhite) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, 28, 28);
+                ctx.strokeStyle = 'black';
+                document.getElementById('modeBtn').innerText = "Mode: Paper (B/W)";
+            } else {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, 28, 28);
+                ctx.strokeStyle = 'white';
+                document.getElementById('modeBtn').innerText = "Mode: MNIST (W/B)";
+            }
+            // 笔触加粗一点，因为 28x28 很小
+            ctx.lineWidth = 1.5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+        initCanvas();
+
+        function toggleMode() {
+            isBlackOnWhite = !isBlackOnWhite;
+            initCanvas();
+            document.getElementById('predResult').innerText = "?";
+        }
+
+        // 坐标获取
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            ctx.beginPath();
+            const pos = getPos(e);
+            ctx.moveTo(pos.x, pos.y);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            const pos = getPos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        });
+
+        // --- 核心改动：松开鼠标自动预测 ---
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+            predictDigit(); // 自动触发
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (isDrawing) {
+                isDrawing = false;
+                predictDigit(); // 自动触发
+            }
+        });
+
+        function clearCanvas() {
+            initCanvas();
+            document.getElementById('predResult').innerText = "?";
+            document.getElementById('confResult').innerText = "Confidence: -";
+            for(let i=0; i<=9; i++) {
+                document.getElementById(`bar-${i}`).style.width = '0%';
+                document.getElementById(`val-${i}`).innerText = '0%';
+            }
+        }
+
+        async function predictDigit() {
+            const modelType = document.getElementById('modelSelect').value;
+            const imageData = ctx.getImageData(0, 0, 28, 28);
+            const data = imageData.data;
+            const pixels = [];
+            for (let i = 0; i < data.length; i += 4) pixels.push(data[i]);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pixels: pixels,
+                        is_black_on_white: isBlackOnWhite,
+                        model_type: modelType // <--- 把这个传给后端
+                    })
+                });
+                const result = await response.json();
+
+                document.getElementById('predResult').innerText = result.prediction;
+                document.getElementById('confResult').innerText = `Confidence: ${result.confidence}`;
+
+                result.probabilities.forEach((prob, idx) => {
+                    const percent = (prob * 100).toFixed(1);
+                    const bar = document.getElementById(`bar-${idx}`);
+                    bar.style.width = `${percent}%`;
+                    document.getElementById(`val-${idx}`).innerText = `${percent}%`;
+                    bar.style.backgroundColor = (idx === result.prediction) ? '#28a745' : '#007bff';
+                });
+            } catch (error) { console.error(error); }
+        }
+    </script>
+</body>
+</html>
