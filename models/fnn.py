@@ -17,39 +17,45 @@ class FNN:
         self.params['W2'] = np.random.randn(hidden_size, output_size) * np.sqrt(2 / hidden_size)
         self.params['b2'] = np.zeros((1, output_size))
 
-    def relu(self, Z):
+    def relu(self, linear_values):
         # ReLU sets values below 0 to 0 and keeps positive values unchanged
-        return np.maximum(0, Z)
+        return np.maximum(0, linear_values)
 
-    def softmax(self, Z):
+    def softmax(self, logits):
         # Softmax formula: exp(Z) / sum(exp(Z))
         # 1. Subtract the row-wise max to avoid exp overflow (numerical stability)
-        shift_Z = Z - np.max(Z, axis=1, keepdims=True)
+        shifted_logits = logits - np.max(logits, axis=1, keepdims=True)
 
         # 2. Compute exponentials
-        exp_Z = np.exp(shift_Z)
+        exp_logits = np.exp(shifted_logits)
 
         # 3. Compute denominator: row-wise sum
         # axis=1 means summing values across each row
-        sum_exp_Z = np.sum(exp_Z, axis=1, keepdims=True)
+        row_sums = np.sum(exp_logits, axis=1, keepdims=True)
 
         # 4. Compute probabilities
-        return exp_Z / sum_exp_Z
+        return exp_logits / row_sums
 
     def forward(self, X):
         # 1. Layer 1
-        Z1 = np.dot(X, self.params['W1']) + self.params['b1']
-        A1 = self.relu(Z1)
+        hidden_linear = np.dot(X, self.params['W1']) + self.params['b1']
+        hidden_activation = self.relu(hidden_linear)
 
         # 2. Layer 2
-        Z2 = np.dot(A1, self.params['W2']) + self.params['b2']
-        A2 = self.softmax(Z2)
+        output_logits = np.dot(hidden_activation, self.params['W2']) + self.params['b2']
+        output_probs = self.softmax(output_logits)
 
-        # Key point: cache intermediate values Z1 and A1
+        # Key point: cache intermediate values for backpropagation
         # They are needed when computing gradients in backpropagation
-        self.cache = {'Z1': Z1, 'A1': A1, 'Z2': Z2, 'A2': A2, 'X': X}
+        self.cache = {
+            'hidden_linear': hidden_linear,
+            'hidden_activation': hidden_activation,
+            'output_logits': output_logits,
+            'output_probs': output_probs,
+            'inputs': X
+        }
 
-        return A2
+        return output_probs
 
     def backward(self, X, y, learning_rate=0.1):
         """
@@ -59,39 +65,39 @@ class FNN:
             :param learning_rate: Learning rate.
         """
         # 0. Setup
-        m = X.shape[0]
+        batch_size = X.shape[0]
         # Retrieve cached intermediate values from forward propagation
         # Use self.params directly for parameters
-        W2 = self.params['W2']
-        A1 = self.cache['A1']
-        Z1 = self.cache['Z1']
+        output_weights = self.params['W2']
+        hidden_activation = self.cache['hidden_activation']
+        hidden_linear = self.cache['hidden_linear']
 
         # 1. Output-layer gradients
-        A2 = self.cache['A2']
-        dZ2 = A2 - y  # Cross-entropy + softmax derivative
+        output_probs = self.cache['output_probs']
+        output_delta = output_probs - y  # Cross-entropy + softmax derivative
 
-        dW2 = np.dot(A1.T, dZ2) / m
-        db2 = np.sum(dZ2, axis=0, keepdims=True) / m
+        grad_W2 = np.dot(hidden_activation.T, output_delta) / batch_size
+        grad_b2 = np.sum(output_delta, axis=0, keepdims=True) / batch_size
 
         # 2. Hidden-layer gradients
-        # 2.1 Backpropagate error: dZ2 -> dA1
-        dA1 = np.dot(dZ2, W2.T)
+        # 2.1 Backpropagate output delta to hidden activation gradient
+        hidden_activation_grad = np.dot(output_delta, output_weights.T)
 
         # 2.2 Activation derivative (ReLU derivative)
-        # Gradient flows only where Z1 > 0; otherwise it is zero
-        dZ1 = dA1 * (Z1 > 0)
+        # Gradient flows only where hidden pre-activation > 0; otherwise it is zero
+        hidden_linear_delta = hidden_activation_grad * (hidden_linear > 0)
 
         # 2.3 Compute first-layer parameter gradients
         # X.T is required here
-        dW1 = np.dot(X.T, dZ1) / m
-        db1 = np.sum(dZ1, axis=0, keepdims=True) / m
+        grad_W1 = np.dot(X.T, hidden_linear_delta) / batch_size
+        grad_b1 = np.sum(hidden_linear_delta, axis=0, keepdims=True) / batch_size
 
         # 3. Update parameters (gradient descent)
         # W = W - learning_rate * dW
-        self.params['W1'] -= learning_rate * dW1
-        self.params['b1'] -= learning_rate * db1
-        self.params['W2'] -= learning_rate * dW2
-        self.params['b2'] -= learning_rate * db2
+        self.params['W1'] -= learning_rate * grad_W1
+        self.params['b1'] -= learning_rate * grad_b1
+        self.params['W2'] -= learning_rate * grad_W2
+        self.params['b2'] -= learning_rate * grad_b2
 
     def save(self, filename):
         """
