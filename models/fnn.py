@@ -97,16 +97,16 @@ class FNN:
         """
         Save model parameters to file.
         """
-        print(f"正在保存模型到 {filename} ...")
+        print(f"Saving model to {filename} ...")
         with open(filename, 'wb') as f:
             pickle.dump(self.params, f)
-        print("保存成功！")
+        print("Model saved successfully.")
 
     def load(self, filename):
         """
         Load model parameters from file.
         """
-        print(f"正在加载模型 {filename} ...")
+        print(f"Loading model from {filename} ...")
         with open(filename, 'rb') as f:
             self.params = pickle.load(f)
-        print("加载成功！")
+        print("Model loaded successfully.")
