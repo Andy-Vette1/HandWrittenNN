@@ -1,18 +1,20 @@
 # HandWrittenNN - MNIST Digit Recognition
 
-基于 MNIST 的手写数字识别项目，包含：
-- NumPy 手写前馈网络（FNN）
-- PyTorch 卷积网络（CNN）
-- Flask Web 推理页面
+[中文文档 (Chinese)](./README.zh-CN.md)
+
+A handwritten digit recognition project based on MNIST, including:
+- NumPy feedforward neural network (FNN) implementation
+- PyTorch convolutional neural network (CNN)
+- Flask web inference app
 
 ## Project Structure
 
-- `src/`: 训练、导出、Web 入口与通用工具
-- `models/`: 模型结构定义（代码）
-- `data/`: 数据目录（CSV 数据集与 torchvision 下载数据）
-- `artifacts/checkpoints/`: 训练输出权重（`.pkl`/`.pth`）
-- `artifacts/exports/`: 导出产物（`.onnx`）
-- `test/`: 测试代码
+- `src/`: Training, export, web entry, and shared utilities
+- `models/`: Model architecture definitions
+- `data/`: Data directory (CSV datasets and torchvision-downloaded data)
+- `artifacts/checkpoints/`: Training checkpoints (`.pkl`/`.pth`)
+- `artifacts/exports/`: Exported artifacts (`.onnx`)
+- `test/`: Test code
 
 ## Environment Setup
 
@@ -25,57 +27,55 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-# NumPy FNN 训练
+# Train NumPy FNN
 python -m src.fnn.train
 
-# PyTorch CNN 训练
+# Train PyTorch CNN
 python -m src.cnn.train
 
-# 导出 ONNX
+# Export ONNX
 python -m src.cnn.export_onnx
 
-# 启动 Web
+# Start Web app
 python -m src.web_app
 ```
 
+## FNN Training Workflow
 
-## FNN训练步骤
-1. 明确任务并准备测试数据
-    - 任务类型：分类/回归
-    - 准备数据集：划分训练数据、测试数据、验证数据
-2. 数据预处理
-    - 特征归一化或标准化
-    - 类别标签编码（one-hot）
-    - 可选：打乱、去噪、特这工程
-3. 设计网络结构
-    - 输入层维度：特征数
-    - 隐藏层：
-      - 设计合适的宽度
-      - 设计合适的深度
-    - 输出层：
-      - 分类：softmax（多分类）、sigmod（而分类）
-      - 回归：线行输出
-    - 激活函数：ReLU
-4. 初始化参数 
-    - 初始化权重
-    - 偏置通常初始化为0或者小常数
-5. 定义损失函数和优化器
-    - 分类常用交叉熵
-    - 回归常用MSE
-    - 优化器：Adam、SGD、Momentum等
-    - 设置学习率、batch size、epoch等
-6. 循环训练
-7. 验证与调参
-    - 观察是否过拟合、欠拟合
-8. 测试与部署
+1. Define the task and prepare data
+   - Task type: classification/regression
+   - Split train/test/validation sets
+2. Data preprocessing
+   - Normalize or standardize features
+   - Encode labels (one-hot)
+   - Optional: shuffling, denoising, feature engineering
+3. Design network architecture
+   - Input dimension: number of features
+   - Hidden layers: choose appropriate width and depth
+   - Output layer:
+     - Classification: softmax (multi-class), sigmoid (binary)
+     - Regression: linear output
+   - Activation functions: ReLU, etc.
+4. Initialize parameters
+   - Initialize weights
+   - Bias is often initialized to 0 or a small constant
+5. Define loss and optimizer
+   - Cross-entropy is common for classification
+   - MSE is common for regression
+   - Optimizers: Adam, SGD, Momentum, etc.
+   - Set learning rate, batch size, epochs, etc.
+6. Train iteratively
+7. Validate and tune
+   - Monitor overfitting and underfitting
+8. Test and deploy
 
-## 待解决问题（保留）
+## Open Questions
 
-为什么使用mnist？
-为什么要把原始数值0-255的像素值压到0-1？
-如果不压缩，对梯度有什么影响？
-为什么要做one-hot？
-w1,b1,w2,b2的形状分别是？
-偏执的初始化为什么最好是0？
-什么是He Initialization？
-为啥要init.py？没有这个文件为什么test文件夹下的文件无法import？!
+- Why use MNIST?
+- Why scale raw pixel values (0-255) to 0-1?
+- What happens to gradients if we do not scale values?
+- Why use one-hot encoding?
+- What are the shapes of `w1`, `b1`, `w2`, and `b2`?
+- Why is bias initialization often set to 0?
+- What is He Initialization?
+- Why is `__init__.py` needed, and why can files under `test` fail to import without it?
